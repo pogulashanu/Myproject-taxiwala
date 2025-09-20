@@ -55,7 +55,7 @@ environment {
                         "files": [
                          {
                             "pattern": "target/*.jar",
-                             "target": "taxi-libs-release-local/",
+                             "target": "taxiwala30-libs-release-local/",
                              "flat": "false",
                              "props": "${properties}",
                               "exclusions": [ "*.sha1", "*.md5" ]
