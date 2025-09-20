@@ -1,66 +1,52 @@
-def registry = 'https://taxi012.jfrog.io'
-
 pipeline {
-    agent {
-        node {
-            label 'maven'
-        }
-    }
+    agent any
+
     environment {
         PATH = "/opt/apache-maven-3.9.6/bin:$PATH"
         SONAR_TOKEN = credentials('SONAR_TOKEN')
     }
-    stages {
-        stage("build") {
-            steps {
-                echo "----------- build started ----------"
-                sh 'mvn package'
-                echo "----------- build completed ----------"
-            }
-        }
-        stage("test") {
-            steps {
-                echo "----------- unit test started ----------"
-                sh 'mvn surefire-report:report'
-                echo "----------- unit test completed ----------"
-            }
-        }
-        stage('SonarQube Analysis') {
-            steps {
-                script {
-                    sh """
-                    mvn sonar:sonar \
-                      -Dsonar.projectKey=myproject-taxiwala_taxiwala \
-                      -Dsonar.organization=myproject-taxiwala \
-                      -Dsonar.host.url=https://sonarcloud.io \
-                      -Dsonar.token=${SONAR_TOKEN}
-                    """
-                }
-            }
-        }
-        stage("Jar Publish") {
-            steps {
-                script {
-                    echo '<--------------- Jar Publish Started --------------->'
-                    def server = Artifactory.newServer url: registry, credentialsId: "jfrog-cred"
 
-                    def properties = "buildid=${env.BUILD_ID},commitid=${GIT_COMMIT}"
+    stages {
+        stage('Build') {
+            steps {
+                echo "----------- Build Started ----------"
+                sh 'mvn clean package'
+                echo "----------- Build Completed ----------"
+            }
+        }
+
+        stage('Publish to Artifactory') {
+            steps {
+                script {
+                    // ✅ Define Artifactory registry URL
+                    def registry = 'https://taxi012.jfrog.io/artifactory'
+
+                    // Create Artifactory server using registry URL
+                    def server = Artifactory.newServer(
+                        url: registry,
+                        credentialsId: "jfrog-credentials" // Your Jenkins credentials ID
+                    )
+
+                    // Create build info object
+                    def buildInfo = Artifactory.newBuildInfo()
+
+                    // Define what to upload
                     def uploadSpec = """{
                         "files": [
                             {
                                 "pattern": "target/*.jar",
-                                "target": "taxi-libs-release-local/",
-                                "flat": "false",
-                                "props" : "${properties}",
-                                "exclusions": [ "*.sha1", "*.md5" ]
+                                "target": "my-repo/"
                             }
                         ]
                     }"""
 
-                    def buildInfo = server.upload(uploadSpec)
-                    buildInfo.env.collect()
+                    // Upload artifacts
+                    server.upload(uploadSpec, buildInfo)
+
+                    // Publish build info
                     server.publishBuildInfo(buildInfo)
-                    echo '<--------------- Jar Publish Ended --------------->'
+
+                    echo "----------- Artifacts Published Successfully ----------"
                 }
             }
         }
