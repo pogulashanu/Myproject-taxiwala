@@ -85,6 +85,13 @@ environment {
             }
         }
     }
+     stage('Verify Docker Image') {
+        steps {
+            script {
+                sh 'docker images | grep taxiapp'
+            }
+        }
+    }
 
    }
 }
