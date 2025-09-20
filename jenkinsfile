@@ -55,7 +55,7 @@ environment {
                         "files": [
                          {
                             "pattern": "target/*.jar",
-                             "target": "taxiwala30-libs-release-local/",
+                             "target": "shanvik-libs-release-local/",
                              "flat": "false",
                              "props": "${properties}",
                               "exclusions": [ "*.sha1", "*.md5" ]
