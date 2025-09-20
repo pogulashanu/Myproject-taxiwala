@@ -1,54 +1,78 @@
+registry = 'https://taxi012.jfrog.io/artifactory'
+server = Artifactory.newServer url: registry, credentialsId: "jfrog-cred"
 pipeline {
-    agent any
-
-    environment {
-        PATH = "/opt/apache-maven-3.9.6/bin:$PATH"
-        SONAR_TOKEN = credentials('SONAR_TOKEN')
+    agent {
+        node {
+            label 'maven'
+        }
     }
+environment {
+    PATH = "/opt/apache-maven-3.9.6/bin:$PATH"
+    (SONAR_TOKEN = credentials('SONAR_TOKEN'))
 
-    stages {
-        stage('Build') {
+}
+   stages {
+        stage("build"){
             steps {
-                echo "----------- Build Started ----------"
-                sh 'mvn clean package'
-                echo "----------- Build Completed ----------"
+                 echo "----------- build started ----------"
+                sh 'mvn package'
+                 echo "----------- build complted ----------"
             }
         }
-
-        stage('Publish to Artifactory') {
+        stage("test"){
+            steps{
+                echo "----------- unit test started ----------"
+                sh 'mvn surefire-report:report'
+                 echo "----------- unit test Complted ----------"
+            }
+        }
+        stage('SonarQube Analysis') {
             steps {
                 script {
-                    // ✅ Define Artifactory registry URL
-                    def registry = 'https://taxi012.jfrog.io/artifactory'
-
-                    // Create Artifactory server using registry URL
-                    def server = Artifactory.newServer(
-                        url: registry,
-                        credentialsId: "jfrog-credentials" // Your Jenkins credentials ID
-                    )
-
-                    // Create build info object
-                    def buildInfo = Artifactory.newBuildInfo()
-
-                    // Define what to upload
-                    def uploadSpec = """{
-                        "files": [
-                            {
-                                "pattern": "target/*.jar",
-                                "target": "my-repo/"
-                            }
-                        ]
-                    }"""
-
-                    // Upload artifacts
-                    server.upload(uploadSpec, buildInfo)
-
-                    // Publish build info
-                    server.publishBuildInfo(buildInfo)
-
-                    echo "----------- Artifacts Published Successfully ----------"
+                    // Run SonarQube analysis
+                    sh """
+                    mvn sonar:sonar \
+                    -Dsonar.projectKey=application-taxiwala_taxiwala\
+                    -Dsonar.organization=application-taxiwala \
+                    -Dsonar.host.url=https://sonarcloud.io \
+                    -Dsonar.token=${SONAR_TOKEN}
+                    """
                 }
             }
         }
+     stage("Jar Publish") {
+            steps {
+                script {
+                     echo '<--------------- Jar Publish Started --------------->'
+
+                     def registry = 'https://taxi012.jfrog.io/artifactory'
+                     def server = Artifactory.newServer url: registry, credentialsId: "jfrog-cred"
+
+            // define props outside JSON
+                     def properties = "buildid=${env.BUILD_ID};commitid=${GIT_COMMIT}"
+
+                     def uploadSpec = """{
+                        "files": [
+                         {
+                            "pattern": "target/*.jar",
+                             "target": "taxi-libs-release-local/",
+                             "flat": "false",
+                             "props": "${properties}",
+                              "exclusions": [ "*.sha1", "*.md5" ]
+                      }
+                ]
+            }"""
+
+            echo "Upload spec being used: ${uploadSpec}"
+
+            def buildInfo = server.upload(uploadSpec)
+            buildInfo.env.collect()
+            server.publishBuildInfo(buildInfo)
+
+            echo '<--------------- Jar Publish Ended --------------->'
+        }
     }
+}
+
+}
 }
