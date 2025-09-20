@@ -1,5 +1,5 @@
-registry = 'https://taxi012.jfrog.io/artifactory'
-server = Artifactory.newServer url: registry, credentialsId: "jfrog-cred"
+def registry = 'https://taxi012.jfrog.io/artifactory'
+def server = Artifactory.newServer url: registry, credentialsId: "jfrog-cred"
 pipeline {
     agent {
         node {
